@@ -1,312 +1,332 @@
-
 import streamlit as st
-import time
+import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="Countdown Clock & Timer",
     page_icon="⏱️",
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    layout="centered"
 )
 
-# ---------- SESSION STATE ----------
-defaults = {
-    "remaining": 0,
-    "end_time": None,
-    "running": False,
-    "paused": False,
-    "finished": False,
-    "status": "Ready to start",
-    "hours": "00",
-    "minutes": "00",
-    "seconds": "00",
-    "message": "",
-    "message_type": "error"
-}
+html_code = r"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-for key, value in defaults.items():
-    if key not in st.session_state:
-        st.session_state[key] = value
-
-# ---------- CSS: MATCH ORIGINAL TKINTER DESIGN ----------
-st.markdown("""
 <style>
-.stApp {
-    background-color: #101827;
-    color: white;
+* {
+    box-sizing: border-box;
 }
-header[data-testid="stHeader"] {
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: #101827;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+.timer-app {
+    width: 100%;
+    max-width: 460px;
+    min-height: 610px;
+    margin: 0 auto;
+    padding: 45px 12px 25px;
+    text-align: center;
     background: #101827;
 }
-#MainMenu, footer, [data-testid="stToolbar"] {
-    visibility: hidden;
-}
-.block-container {
-    max-width: 525px;
-    padding-top: 25px;
-    padding-bottom: 35px;
-}
+
 h1 {
-    color: #60A5FA !important;
-    text-align: center;
-    font-family: Arial, sans-serif;
-    font-size: 34px !important;
-    font-weight: bold !important;
-    white-space: nowrap;
-    margin-bottom: 30px;
-}
-.subtitle {
-    text-align: center;
-    color: white;
-    font: 20px Arial, sans-serif;
-    margin-bottom: 23px;
-}
-div[data-testid="stTextInput"] label {
-    color: #CBD5E1 !important;
-    text-align: center;
-    display: block;
-    font-size: 15px;
-}
-div[data-testid="stTextInput"] input {
-    background: #FFFFFF !important;
-    color: #111827 !important;
-    border: 1px solid #9CA3AF !important;
-    border-radius: 0 !important;
-    text-align: center;
-    font-family: Arial, sans-serif;
-    font-size: 23px !important;
+    margin: 0 0 22px;
+    color: #60A5FA;
+    font-size: 34px;
     font-weight: bold;
-    height: 43px;
+    white-space: nowrap;
 }
-.timer-display {
+
+.subtitle {
+    font-size: 23px;
+    margin-bottom: 35px;
+}
+
+.inputs {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+}
+
+.time-field {
+    width: 31%;
+    min-width: 0;
+}
+
+.time-field label {
+    display: block;
+    color: #CBD5E1;
+    font-size: 15px;
+    margin-bottom: 12px;
+}
+
+.time-field input {
+    width: 100%;
+    height: 48px;
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #111827;
     text-align: center;
+    font-size: 27px;
+    font-weight: bold;
+    outline: none;
+}
+
+.buttons {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 21px;
+}
+
+button {
+    flex: 1;
+    height: 53px;
+    border: 1px solid #64748b;
+    color: white;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+button:active {
+    opacity: 0.8;
+}
+
+.start { background: #16A34A; }
+.pause { background: #D97706; }
+.reset { background: #DC2626; }
+
+.display {
+    margin-top: 78px;
     color: #34D399;
     font-family: Consolas, monospace;
-    font-size: clamp(37px, 9vw, 57px);
-    line-height: 1.3;
+    font-size: 58px;
     font-weight: bold;
+    letter-spacing: -2px;
     white-space: nowrap;
-    margin-top: 40px;
-    margin-bottom: 26px;
-    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
 }
-.timer-status {
-    text-align: center;
+
+.status {
+    margin-top: 37px;
+    font-size: 21px;
     color: white;
-    font: 18px Arial, sans-serif;
-    margin-bottom: 27px;
-    min-height: 24px;
 }
-div.st-key-start button {
-    background: #16A34A !important;
-    color: white !important;
-}
-div.st-key-pause button {
-    background: #D97706 !important;
-    color: white !important;
-}
-div.st-key-reset button {
-    background: #DC2626 !important;
-    color: white !important;
-}
-div.st-key-start button,
-div.st-key-pause button,
-div.st-key-reset button {
-    border-radius: 0 !important;
-    height: 43px;
-    font-family: Arial, sans-serif;
-    font-size: 17px;
-    font-weight: bold;
-    border: 1px solid #64748b !important;
-}
-div.st-key-start button:hover,
-div.st-key-pause button:hover,
-div.st-key-reset button:hover {
-    filter: brightness(1.12);
-}
-div[data-testid="stAlert"] {
-    margin-top: 10px;
+
+@media (max-width: 380px) {
+    .timer-app { padding-top: 35px; }
+    h1 { font-size: 27px; }
+    .subtitle { font-size: 20px; }
+    .inputs { gap: 8px; }
+    .display { font-size: 45px; margin-top: 65px; }
+    .buttons { gap: 7px; }
+    button { font-size: 12px; }
 }
 </style>
-""", unsafe_allow_html=True)
+</head>
 
-# ---------- HEADING ----------
-st.markdown(
-    '<h1>COUNTDOWN TIMER</h1>',
-    unsafe_allow_html=True
-)
-st.markdown(
-    '<div class="subtitle">Set your time</div>',
-    unsafe_allow_html=True
-)
+<body>
+<div class="timer-app">
 
-# ---------- INPUTS ----------
-c1, c2, c3 = st.columns(3, gap="small")
+    <h1>COUNTDOWN TIMER</h1>
 
-with c1:
-    st.text_input("Hours", key="hours", max_chars=3)
+    <div class="subtitle">Set your time</div>
 
-with c2:
-    st.text_input("Minutes", key="minutes", max_chars=2)
+    <div class="inputs">
+        <div class="time-field">
+            <label for="hours">Hours</label>
+            <input id="hours" type="number"
+                   min="0" max="999" value="00">
+        </div>
 
-with c3:
-    st.text_input("Seconds", key="seconds", max_chars=2)
+        <div class="time-field">
+            <label for="minutes">Minutes</label>
+            <input id="minutes" type="number"
+                   min="0" max="59" value="00">
+        </div>
 
+        <div class="time-field">
+            <label for="seconds">Seconds</label>
+            <input id="seconds" type="number"
+                   min="0" max="59" value="00">
+        </div>
+    </div>
 
-def parse_time():
-    values = [
-        st.session_state.hours.strip(),
-        st.session_state.minutes.strip(),
-        st.session_state.seconds.strip()
-    ]
+    <div class="display" id="display">00:00:00</div>
 
-    if not all(v.isdigit() for v in values):
-        raise ValueError(
-            "Enter valid whole numbers for hours, minutes and seconds."
-        )
+    <div class="status" id="status">Ready to start</div>
 
-    h, m, s = map(int, values)
+    <div class="buttons">
+        <button class="start" id="start">START</button>
+        <button class="pause" id="pause">PAUSE</button>
+        <button class="reset" id="reset">RESET</button>
+    </div>
 
-    if h < 0 or not 0 <= m <= 59 or not 0 <= s <= 59:
-        raise ValueError(
-            "Minutes and seconds must be between 0 and 59."
-        )
+</div>
 
-    total = h * 3600 + m * 60 + s
+<script>
+let remaining = 0;
+let running = false;
+let paused = false;
+let endTime = 0;
+let interval = null;
+let audioContext = null;
 
-    if total <= 0:
-        raise ValueError("Please enter a time greater than zero.")
+const display = document.getElementById("display");
+const statusText = document.getElementById("status");
+const hours = document.getElementById("hours");
+const minutes = document.getElementById("minutes");
+const seconds = document.getElementById("seconds");
 
-    return total
+function showTime(total) {
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
 
+    display.textContent =
+        String(h).padStart(2, "0") + ":" +
+        String(m).padStart(2, "0") + ":" +
+        String(s).padStart(2, "0");
+}
 
-# ---------- BUTTONS ----------
-b1, b2, b3 = st.columns(3, gap="small")
+function alarm() {
+    try {
+        audioContext = audioContext ||
+            new (window.AudioContext || window.webkitAudioContext)();
 
-with b1:
-    start_clicked = st.button(
-        "START", key="start",
-        use_container_width=True
-    )
+        audioContext.resume();
 
-with b2:
-    pause_clicked = st.button(
-        "PAUSE", key="pause",
-        use_container_width=True
-    )
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
 
-with b3:
-    reset_clicked = st.button(
-        "RESET", key="reset",
-        use_container_width=True
-    )
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.frequency.value = 880;
+        gain.gain.value = 0.15;
 
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.8);
+    } catch (e) {
+        console.log("Audio is unavailable", e);
+    }
+}
 
-# ---------- START ----------
-if start_clicked:
-    st.session_state.message = ""
+function tick() {
+    if (!running) return;
 
-    if st.session_state.running:
-        st.session_state.status = "Timer is already running..."
-    else:
-        try:
-            if not st.session_state.paused:
-                st.session_state.remaining = parse_time()
+    remaining = Math.max(
+        0, Math.ceil((endTime - Date.now()) / 1000)
+    );
 
-            if st.session_state.remaining > 0:
-                st.session_state.end_time = (
-                    time.monotonic() + st.session_state.remaining
-                )
-                st.session_state.running = True
-                st.session_state.paused = False
-                st.session_state.finished = False
-                st.session_state.status = "Timer is running..."
+    showTime(remaining);
 
-        except ValueError as error:
-            st.session_state.message = str(error)
-            st.session_state.message_type = "error"
-            st.session_state.status = "Ready to start"
+    if (remaining <= 0) {
+        clearInterval(interval);
+        interval = null;
+        running = false;
+        paused = false;
 
+        display.style.color = "#F87171";
+        statusText.textContent = "Time's up! Alarm ringing!";
+        statusText.style.color = "#F87171";
+        alarm();
+    }
+}
 
-# ---------- PAUSE ----------
-if pause_clicked:
-    if st.session_state.running:
-        st.session_state.remaining = max(
-            0,
-            int(
-                st.session_state.end_time
-                - time.monotonic() + 0.999
-            )
-        )
-        st.session_state.running = False
-        st.session_state.paused = True
-        st.session_state.end_time = None
-        st.session_state.status = "Timer paused"
-    else:
-        st.session_state.status = "Timer is not running"
+document.getElementById("start").addEventListener("click", () => {
+    if (running) return;
 
+    if (!paused) {
+        const h = Number(hours.value);
+        const m = Number(minutes.value);
+        const s = Number(seconds.value);
 
-# ---------- RESET ----------
-if reset_clicked:
-    st.session_state.remaining = 0
-    st.session_state.end_time = None
-    st.session_state.running = False
-    st.session_state.paused = False
-    st.session_state.finished = False
-    st.session_state.status = "Ready to start"
-    st.session_state.hours = "00"
-    st.session_state.minutes = "00"
-    st.session_state.seconds = "00"
-    st.session_state.message = ""
+        if (
+            hours.value.trim() === "" ||
+            minutes.value.trim() === "" ||
+            seconds.value.trim() === "" ||
+            !Number.isInteger(h) ||
+            !Number.isInteger(m) ||
+            !Number.isInteger(s) ||
+            h < 0 || h > 999 ||
+            m < 0 || m > 59 ||
+            s < 0 || s > 59
+        ) {
+            statusText.textContent =
+                "Enter valid time (minutes/seconds 0-59).";
+            statusText.style.color = "#F87171";
+            return;
+        }
 
+        remaining = h * 3600 + m * 60 + s;
 
-# ---------- LIVE COUNTDOWN ----------
-if st.session_state.running:
-    st.session_state.remaining = max(
-        0,
-        int(
-            st.session_state.end_time
-            - time.monotonic() + 0.999
-        )
-    )
+        if (remaining <= 0) {
+            statusText.textContent =
+                "Please enter a time greater than zero.";
+            statusText.style.color = "#F87171";
+            return;
+        }
+    }
 
-    if st.session_state.remaining <= 0:
-        st.session_state.running = False
-        st.session_state.paused = False
-        st.session_state.end_time = None
-        st.session_state.finished = True
-        st.session_state.status = "Time's up! Alarm ringing!"
+    display.style.color = "#34D399";
+    statusText.style.color = "#34D399";
+    statusText.textContent = "Timer is running...";
 
+    running = true;
+    paused = false;
+    endTime = Date.now() + remaining * 1000;
 
-# ---------- DISPLAY ----------
-total = st.session_state.remaining
-hh = total // 3600
-mm = (total % 3600) // 60
-ss = total % 60
+    tick();
+    interval = setInterval(tick, 100);
+});
 
-display_color = (
-    "#F87171" if st.session_state.finished else "#34D399"
-)
+document.getElementById("pause").addEventListener("click", () => {
+    if (!running) return;
 
-st.markdown(
-    f'<div class="timer-display" style="color:{display_color}">'
-    f'{hh:02d}:{mm:02d}:{ss:02d}</div>',
-    unsafe_allow_html=True
-)
+    remaining = Math.max(
+        0, Math.ceil((endTime - Date.now()) / 1000)
+    );
 
-st.markdown(
-    f'<div class="timer-status">{st.session_state.status}</div>',
-    unsafe_allow_html=True
-)
+    running = false;
+    paused = true;
 
-if st.session_state.message:
-    st.error(st.session_state.message)
+    clearInterval(interval);
+    interval = null;
 
-if st.session_state.finished:
-    st.warning("Time is up!")
+    showTime(remaining);
+    statusText.textContent = "Timer paused";
+    statusText.style.color = "#FBBF24";
+});
 
-# Refresh the page periodically while running so the countdown
-# updates in the browser.
-if st.session_state.running:
-    time.sleep(0.2)
-    st.rerun()
+document.getElementById("reset").addEventListener("click", () => {
+    running = false;
+    paused = false;
+
+    clearInterval(interval);
+    interval = null;
+
+    remaining = 0;
+    hours.value = "00";
+    minutes.value = "00";
+    seconds.value = "00";
+
+    showTime(0);
+
+    display.style.color = "#34D399";
+    statusText.style.color = "white";
+    statusText.textContent = "Ready to start";
+});
+</script>
+</body>
+</html>
+"""
+
+components.html(html_code, height=650, scrolling=False)
