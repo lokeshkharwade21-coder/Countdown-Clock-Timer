@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -78,6 +79,19 @@ h1 {
     font-size: 27px;
     font-weight: bold;
     outline: none;
+    padding: 4px;
+
+    /* Hide number input arrows */
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* Hide arrows in Chrome, Edge and Safari */
+.time-field input::-webkit-inner-spin-button,
+.time-field input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
 }
 
 .buttons {
@@ -100,9 +114,17 @@ button:active {
     opacity: 0.8;
 }
 
-.start { background: #16A34A; }
-.pause { background: #D97706; }
-.reset { background: #DC2626; }
+.start {
+    background: #16A34A;
+}
+
+.pause {
+    background: #D97706;
+}
+
+.reset {
+    background: #DC2626;
+}
 
 .display {
     margin-top: 78px;
@@ -122,13 +144,34 @@ button:active {
 }
 
 @media (max-width: 380px) {
-    .timer-app { padding-top: 35px; }
-    h1 { font-size: 27px; }
-    .subtitle { font-size: 20px; }
-    .inputs { gap: 8px; }
-    .display { font-size: 45px; margin-top: 65px; }
-    .buttons { gap: 7px; }
-    button { font-size: 12px; }
+    .timer-app {
+        padding-top: 35px;
+    }
+
+    h1 {
+        font-size: 27px;
+    }
+
+    .subtitle {
+        font-size: 20px;
+    }
+
+    .inputs {
+        gap: 8px;
+    }
+
+    .display {
+        font-size: 45px;
+        margin-top: 65px;
+    }
+
+    .buttons {
+        gap: 7px;
+    }
+
+    button {
+        font-size: 12px;
+    }
 }
 </style>
 </head>
@@ -178,7 +221,9 @@ let running = false;
 let paused = false;
 let endTime = 0;
 let interval = null;
+
 let audioContext = null;
+let alarmOscillator = null;
 
 const display = document.getElementById("display");
 const statusText = document.getElementById("status");
@@ -197,25 +242,30 @@ function showTime(total) {
         String(s).padStart(2, "0");
 }
 
-function alarm() {
+function playAlarm() {
     try {
         audioContext = audioContext ||
-            new (window.AudioContext || window.webkitAudioContext)();
+            new (window.AudioContext ||
+                 window.webkitAudioContext)();
 
         audioContext.resume();
 
-        const oscillator = audioContext.createOscillator();
+        alarmOscillator = audioContext.createOscillator();
         const gain = audioContext.createGain();
 
-        oscillator.connect(gain);
+        alarmOscillator.connect(gain);
         gain.connect(audioContext.destination);
-        oscillator.frequency.value = 880;
+
+        alarmOscillator.type = "sine";
+        alarmOscillator.frequency.value = 880;
         gain.gain.value = 0.15;
 
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.8);
-    } catch (e) {
-        console.log("Audio is unavailable", e);
+        alarmOscillator.start();
+        alarmOscillator.stop(
+            audioContext.currentTime + 0.8
+        );
+    } catch (error) {
+        console.log("Audio unavailable", error);
     }
 }
 
@@ -223,7 +273,8 @@ function tick() {
     if (!running) return;
 
     remaining = Math.max(
-        0, Math.ceil((endTime - Date.now()) / 1000)
+        0,
+        Math.ceil((endTime - Date.now()) / 1000)
     );
 
     showTime(remaining);
@@ -235,98 +286,122 @@ function tick() {
         paused = false;
 
         display.style.color = "#F87171";
-        statusText.textContent = "Time's up! Alarm ringing!";
+        statusText.textContent =
+            "Time's up! Alarm ringing!";
         statusText.style.color = "#F87171";
-        alarm();
+
+        playAlarm();
     }
 }
 
-document.getElementById("start").addEventListener("click", () => {
-    if (running) return;
+document.getElementById("start").addEventListener(
+    "click", function () {
+        if (running) return;
 
-    if (!paused) {
-        const h = Number(hours.value);
-        const m = Number(minutes.value);
-        const s = Number(seconds.value);
+        if (!paused) {
+            const h = Number(hours.value);
+            const m = Number(minutes.value);
+            const s = Number(seconds.value);
 
-        if (
-            hours.value.trim() === "" ||
-            minutes.value.trim() === "" ||
-            seconds.value.trim() === "" ||
-            !Number.isInteger(h) ||
-            !Number.isInteger(m) ||
-            !Number.isInteger(s) ||
-            h < 0 || h > 999 ||
-            m < 0 || m > 59 ||
-            s < 0 || s > 59
-        ) {
-            statusText.textContent =
-                "Enter valid time (minutes/seconds 0-59).";
-            statusText.style.color = "#F87171";
-            return;
+            if (
+                hours.value.trim() === "" ||
+                minutes.value.trim() === "" ||
+                seconds.value.trim() === "" ||
+                !Number.isInteger(h) ||
+                !Number.isInteger(m) ||
+                !Number.isInteger(s) ||
+                h < 0 || h > 999 ||
+                m < 0 || m > 59 ||
+                s < 0 || s > 59
+            ) {
+                statusText.textContent =
+                    "Enter valid time (minutes/seconds 0-59).";
+                statusText.style.color = "#F87171";
+                return;
+            }
+
+            remaining = h * 3600 + m * 60 + s;
+
+            if (remaining <= 0) {
+                statusText.textContent =
+                    "Please enter a time greater than zero.";
+                statusText.style.color = "#F87171";
+                return;
+            }
         }
 
-        remaining = h * 3600 + m * 60 + s;
+        if (audioContext &&
+            audioContext.state === "suspended") {
+            audioContext.resume();
+        }
 
-        if (remaining <= 0) {
-            statusText.textContent =
-                "Please enter a time greater than zero.";
-            statusText.style.color = "#F87171";
-            return;
+        display.style.color = "#34D399";
+        statusText.style.color = "#34D399";
+        statusText.textContent = "Timer is running...";
+
+        running = true;
+        paused = false;
+        endTime = Date.now() + remaining * 1000;
+
+        tick();
+
+        if (running) {
+            interval = setInterval(tick, 100);
         }
     }
+);
 
-    display.style.color = "#34D399";
-    statusText.style.color = "#34D399";
-    statusText.textContent = "Timer is running...";
+document.getElementById("pause").addEventListener(
+    "click", function () {
+        if (!running) return;
 
-    running = true;
-    paused = false;
-    endTime = Date.now() + remaining * 1000;
+        remaining = Math.max(
+            0,
+            Math.ceil((endTime - Date.now()) / 1000)
+        );
 
-    tick();
-    interval = setInterval(tick, 100);
-});
+        running = false;
+        paused = true;
 
-document.getElementById("pause").addEventListener("click", () => {
-    if (!running) return;
+        clearInterval(interval);
+        interval = null;
 
-    remaining = Math.max(
-        0, Math.ceil((endTime - Date.now()) / 1000)
-    );
+        showTime(remaining);
 
-    running = false;
-    paused = true;
+        statusText.textContent = "Timer paused";
+        statusText.style.color = "#FBBF24";
+    }
+);
 
-    clearInterval(interval);
-    interval = null;
+document.getElementById("reset").addEventListener(
+    "click", function () {
+        running = false;
+        paused = false;
 
-    showTime(remaining);
-    statusText.textContent = "Timer paused";
-    statusText.style.color = "#FBBF24";
-});
+        clearInterval(interval);
+        interval = null;
 
-document.getElementById("reset").addEventListener("click", () => {
-    running = false;
-    paused = false;
+        remaining = 0;
 
-    clearInterval(interval);
-    interval = null;
+        hours.value = "00";
+        minutes.value = "00";
+        seconds.value = "00";
 
-    remaining = 0;
-    hours.value = "00";
-    minutes.value = "00";
-    seconds.value = "00";
+        showTime(0);
 
-    showTime(0);
-
-    display.style.color = "#34D399";
-    statusText.style.color = "white";
-    statusText.textContent = "Ready to start";
-});
+        display.style.color = "#34D399";
+        statusText.style.color = "white";
+        statusText.textContent = "Ready to start";
+    }
+);
 </script>
 </body>
 </html>
 """
 
-components.html(html_code, height=650, scrolling=False)
+components.html(
+    html_code,
+    height=650,
+    scrolling=False
+)
+```
